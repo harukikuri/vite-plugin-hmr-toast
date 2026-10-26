@@ -1,0 +1,73 @@
+# vite-plugin-hmr-toast
+
+A tiny Vite plugin that tells you **what just got hot-updated** — right in the browser.
+
+Ever saved a file and wondered "did that actually apply, or did the page just reload?"
+This shows a small toast for every update:
+
+| Badge | When |
+| --- | --- |
+| `HMR` | JS modules were hot-swapped |
+| `CSS` | Only stylesheets changed |
+| `RELOAD` | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
+
+- Zero config, zero runtime dependencies (~2 kB gzipped client)
+- Dev-only: does nothing in `vite build`
+- Rendered in Shadow DOM, so it never clashes with your app's CSS
+- Respects `prefers-reduced-motion`
+
+## Install
+
+```sh
+pnpm add -D vite-plugin-hmr-toast
+```
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite'
+import hmrToast from 'vite-plugin-hmr-toast'
+
+export default defineConfig({
+  plugins: [hmrToast()],
+})
+```
+
+## Options
+
+```ts
+hmrToast({
+  position: 'bottom-right', // 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  duration: 1600,           // ms
+  fullReload: true,         // also report full page reloads
+  exclude: ['.stories.', /\.generated\./], // stay quiet for these paths
+})
+```
+
+`exclude` strings match as substrings; RegExps are tested against the path (e.g. `src/App.tsx`).
+
+## Apps without `index.html`
+
+The client is injected through `transformIndexHtml`. If your setup doesn't go through it
+(SSR frameworks, backend integrations), import it yourself from client code:
+
+```ts
+if (import.meta.env.DEV) import('virtual:hmr-toast')
+```
+
+## How it works
+
+The plugin serves a virtual module that listens to Vite's built-in HMR events
+(`vite:afterUpdate` and `vite:beforeFullReload`). Full reloads are remembered in
+`sessionStorage` for one hop so the toast can survive the reload.
+
+## Development
+
+```sh
+pnpm install
+pnpm play   # build + start the playground, then edit files in playground/
+pnpm test   # build + vitest (unit, dev-server and DOM tests)
+```
+
+## License
+
+MIT

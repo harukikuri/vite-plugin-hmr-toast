@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "rewriteRelativeImportExtensions": true,
+    "allowImportingTsExtensions": true,
+    "declaration": true,
+    "skipLibCheck": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    // client.ts runs in the browser and gets Vite's `import.meta.hot` types.
+    "lib": ["es2022", "dom"],
+    "types": ["node", "vite/client"]
+  },
+  "include": ["src"]
+}
