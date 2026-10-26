@@ -3,7 +3,7 @@
 // `import.meta.hot`, so it must not import anything.
 
 export type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-export type Badge = "HMR" | "CSS" | "RELOAD" | "OFFLINE" | "ONLINE";
+export type Badge = "HMR" | "CSS" | "RELOAD";
 
 export interface ClientOptions {
   position: Position;
@@ -26,11 +26,9 @@ interface UpdatePayload {
 interface Hot {
   on(event: "vite:beforeUpdate" | "vite:afterUpdate", cb: (payload: UpdatePayload) => void): void;
   on(event: "vite:beforeFullReload", cb: (payload: { triggeredBy?: string }) => void): void;
-  on(event: "vite:ws:disconnect", cb: () => void): void;
 }
 
 const RELOAD_KEY = "vite-plugin-hmr-toast:reload";
-const OFFLINE_KEY = "vite-plugin-hmr-toast:offline";
 // A stored reload older than this never happened (Vite skips reloads for
 // another page's HTML), so the next manual reload shouldn't report it.
 const MAX_AGE = 10_000;
@@ -81,18 +79,6 @@ export function start(opts: ClientOptions, hot: Hot): void {
       put(RELOAD_KEY, JSON.stringify({ files, t: Date.now() }));
     });
   }
-
-  // When the server stops, Vite polls until it's back and then reloads the
-  // page, so ONLINE is shown by the page after that reload. The socket also
-  // closes when the page itself unloads, which isn't the server stopping.
-  let unloading = false;
-  addEventListener("beforeunload", () => (unloading = true));
-  if (take(OFFLINE_KEY)) show("ONLINE", [], opts);
-  hot.on("vite:ws:disconnect", () => {
-    if (unloading) return;
-    put(OFFLINE_KEY, "1");
-    show("OFFLINE", [], opts);
-  });
 
   // How long the browser took to apply each update.
   const started = new WeakMap<UpdatePayload, number>();
@@ -156,15 +142,9 @@ const CSS = `
   transition: opacity 160ms ease-out, transform 160ms ease-out;
 }
 .toast.enter, .toast.leave { opacity: 0; transform: translateY(6px); }
-/* The file's icon, or a status dot when there's no file. */
-.dot { justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+/* The file's icon, or a dot for a reload without a file. */
+.dot { justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; }
 .icon, .icon svg { display: block; width: 20px; height: 20px; }
-.hmr, .online { --dot: #22c55e; }
-.css { --dot: #3b82f6; }
-.reload { --dot: #f59e0b; }
-.offline { --dot: #ef4444; }
-.offline .dot { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: 0.35; } }
 .line { display: flex; min-width: 0; white-space: nowrap; color: var(--muted); }
 .line.plain { color: var(--text); }
 /* A long name gives way; "and 2 more updated" stays readable. */
@@ -173,7 +153,6 @@ const CSS = `
 .time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
-  .offline .dot { animation: none; }
 }
 `;
 
@@ -203,16 +182,9 @@ function container({ position, css }: ClientOptions): HTMLElement {
   return stack;
 }
 
-// What each toast says. The second line is the file (or files) for updates
-// and reloads, and NOTE for the toasts without one.
-// One line per toast: "App.tsx updated", "main.ts reloaded the page", or,
-// without a file, what happened.
-const AFTER_FILE: Partial<Record<Badge, string>> = { HMR: "updated", CSS: "updated", RELOAD: "reloaded the page" };
-const NO_FILE: Partial<Record<Badge, string>> = {
-  RELOAD: "Page reloaded",
-  OFFLINE: "Dev server stopped",
-  ONLINE: "Dev server is back",
-};
+// One line per toast: "App.tsx updated", "main.ts reloaded the page", or
+// "Page reloaded" when Vite didn't say which file.
+const AFTER_FILE: Record<Badge, string> = { HMR: "updated", CSS: "updated", RELOAD: "reloaded the page" };
 
 // The icon for each extension, as VS Code's Material Icon Theme picks it.
 const ICON_OF: Record<string, string> = {
@@ -301,7 +273,7 @@ export function recentFiles(): string[] {
   return live.filter((t) => t.badge === "HMR" || t.badge === "CSS").flatMap((t) => t.files);
 }
 
-// OFFLINE stays until the page reloads; `ms` is how long the update took.
+// `ms` is how long the update took.
 export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: number): void {
   const parent = container(opts);
   // Another update of the same kind joins the toast on screen: newest file
@@ -322,7 +294,6 @@ export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: nu
     live.push(toast);
     requestAnimationFrame(() => toast.el.classList.remove("enter"));
   }
-  if (badge === "OFFLINE") return;
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => {
     live = live.filter((t) => t !== toast);
@@ -342,7 +313,7 @@ function render({ el: toast, badge, files }: Live, ms?: number): void {
     line.title = files.join("\n");
   } else {
     line.className = "line plain";
-    line.textContent = NO_FILE[badge] ?? "";
+    line.textContent = "Page reloaded";
   }
   const time = el("span", "time", ms === undefined ? "" : `${Math.round(ms)} ms`);
   toast.replaceChildren(files.length > 0 ? fileIcon(files[0]) : el("span", "dot"), line, time);

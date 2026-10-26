@@ -108,7 +108,7 @@ describe("toasts", () => {
   test("shows the file's icon, or a dot without a file", () => {
     show("HMR", ["src/App.tsx"], opts);
     show("RELOAD", ["src/Makefile"], opts);
-    show("OFFLINE", [], opts);
+    show("RELOAD", [], opts);
     // Each icon told apart by its viewBox and color.
     const icons = [...(document.querySelector("vite-hmr-toast")?.shadowRoot?.querySelectorAll(".toast") ?? [])].map(
       (t) => {
@@ -127,7 +127,7 @@ describe("toasts", () => {
   });
 
   test("keeps at most three toasts", () => {
-    show("OFFLINE", [], opts);
+    show("RELOAD", [], opts);
     show("RELOAD", ["src/main.ts"], opts);
     show("CSS", ["src/a.css"], opts);
     show("HMR", ["src/a.ts"], opts);
@@ -192,33 +192,6 @@ describe("update time", () => {
     hot.emit("vite:beforeUpdate", payload);
     hot.emit("vite:afterUpdate", payload);
     expect(toasts()).toEqual(["App.tsx updated (12 ms)"]);
-  });
-});
-
-describe("server connection", () => {
-  test("OFFLINE stays, and the page after the reload shows ONLINE", () => {
-    vi.useFakeTimers();
-    const hot = fakeHot();
-    start(opts, hot);
-    hot.emit("vite:ws:disconnect", {});
-    vi.advanceTimersByTime(60_000);
-    expect(toasts()).toEqual(["Dev server stopped"]);
-
-    // Vite reloads the page once the server answers again.
-    delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
-    document.querySelector("vite-hmr-toast")?.remove();
-    start(opts, fakeHot());
-    expect(toasts()).toEqual(["Dev server is back"]);
-    expect(sessionStorage.length).toBe(0);
-  });
-
-  test("quiet when the page itself unloads", () => {
-    const hot = fakeHot();
-    start(opts, hot);
-    window.dispatchEvent(new Event("beforeunload"));
-    hot.emit("vite:ws:disconnect", {});
-    expect(toasts()).toEqual([]);
-    expect(sessionStorage.length).toBe(0);
   });
 });
 

@@ -1,9 +1,9 @@
 # vite-plugin-hmr-toast
 
-Shows a toast in the browser whenever Vite hot-updates a file, reloads the page, or loses the
-dev server. It only runs in `vite dev`.
+Shows a toast in the browser whenever Vite hot-updates a file or reloads the page. It only runs
+in `vite dev`.
 
-![Toasts for a hot update, a style update, an agent editing three files, a page reload and a dev server restart](https://raw.githubusercontent.com/harukikuri/vite-plugin-hmr-toast/main/docs/demo.gif)
+![Toasts for a hot update, a style update, an agent editing three files, and a page reload](https://raw.githubusercontent.com/harukikuri/vite-plugin-hmr-toast/main/docs/demo.gif)
 
 Saves that land close together, like an agent editing several files, share one toast. Hover a
 toast to see the full paths.
@@ -56,8 +56,8 @@ Colors are variables on `:host`: `--surface`, `--border`, `--text`, `--muted` an
 Values you set apply in light and dark mode alike; for separate dark ones, set them again
 under `@media (prefers-color-scheme: dark)`.
 
-The elements are `.toast` (also `.hmr`, `.css`, `.reload`, `.offline` or `.online`), and inside
-it `.icon` or `.dot`, `.line` with `.name` for the file name, and `.time`.
+The elements are `.toast` (also `.hmr`, `.css` or `.reload`), and inside it `.icon` (or `.dot`
+for a reload without a file), `.line` with `.name` for the file name, and `.time`.
 
 ## Apps without `index.html`
 

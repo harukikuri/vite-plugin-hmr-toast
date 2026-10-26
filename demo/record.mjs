@@ -50,7 +50,7 @@ const caption = (page, text) =>
     bar.textContent = text;
   }, text);
 
-let server = await serve();
+const server = await serve();
 const browser = await chromium.launch();
 const context = await browser.newContext({
   viewport: { width: 960, height: 540 },
@@ -87,16 +87,6 @@ try {
   await page.waitForEvent("load");
   await ready(page);
   await caption(page, "Edit src/main.jsx: nothing accepts it, so the page reloads");
-  await wait(2800);
-
-  await caption(page, "^C  (the dev server stops)");
-  await server.close();
-  await wait(3000);
-  await caption(page, "$ vite");
-  server = await serve();
-  await page.waitForEvent("load", { timeout: 15000 });
-  await ready(page);
-  await caption(page, "$ vite");
   await wait(2800);
 } finally {
   for (const [p, text] of saved) writeFileSync(p, text);
