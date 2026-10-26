@@ -1,0 +1,20 @@
+{
+  "name": "hmr-toast-demo",
+  "private": true,
+  "type": "module",
+  "description": "The small app the README's GIF is recorded from (node record.mjs).",
+  "scripts": {
+    "dev": "vite",
+    "record": "node record.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright": "1.56.1",
+    "vite": "^8.3.5",
+    "vite-plugin-hmr-toast": "workspace:*"
+  }
+}

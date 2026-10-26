@@ -5,6 +5,8 @@ A tiny Vite plugin that tells you **what just got hot-updated** — right in the
 Ever saved a file and wondered "did that actually apply, or did the page just reload?"
 This shows a small toast for every update:
 
+![Toasts for a hot update, a style update, an agent editing three files, a page reload and a dev server restart](https://raw.githubusercontent.com/harukikuri/vite-plugin-hmr-toast/main/docs/demo.gif)
+
 | Toast | When |
 | --- | --- |
 | `App.tsx updated` | A module or stylesheet was hot-updated (with the file's icon and how long it took, e.g. `12 ms`) |
@@ -78,6 +80,7 @@ toast can survive the reload.
 pnpm install
 pnpm play   # build + start the playground, then edit files in playground/
 pnpm test   # build + vitest (unit, dev-server and DOM tests)
+pnpm build && pnpm --filter hmr-toast-demo record   # re-record docs/demo.gif (needs ffmpeg)
 ```
 
 To release, bump the version and push the tag; GitHub Actions tests it on Vite 5–8,
