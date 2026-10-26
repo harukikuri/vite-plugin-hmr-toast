@@ -1,4 +1,4 @@
-# Every push to main and every pull request: lint and types, then the tests
+# Every push to main, every pull request and every release: lint and types, then the tests
 # against each Vite major the plugin supports (peerDependencies: vite >=5).
 name: CI
 
@@ -6,6 +6,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call: # from release.yml, before publishing
 
 permissions:
   contents: read

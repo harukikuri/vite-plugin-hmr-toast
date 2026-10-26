@@ -1,0 +1,52 @@
+# Push a tag like v0.3.0 (`npm version minor && git push --follow-tags`) → CI,
+# then, only if it passes, publish to npm and create the GitHub release.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the GitHub release
+      id-token: write # npm trusted publishing (no token) and provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4 # version from packageManager
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@11 # trusted publishing needs npm 11.5.1 or later
+      - run: pnpm install --frozen-lockfile
+
+      - name: Tag matches package.json
+        run: |
+          v=$(node -p "require('./package.json').version")
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::package.json is $v, tag is $GITHUB_REF_NAME"; exit 1; }
+
+      # Trusted publishing: npmjs.com trusts this workflow (the package's
+      # Settings → Trusted Publisher), so no token. A version already on npm is
+      # skipped, so a re-run after a failed GitHub release step finishes it.
+      - name: Publish to npm
+        run: |
+          if npm view "vite-plugin-hmr-toast@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
+            echo "vite-plugin-hmr-toast@${GITHUB_REF_NAME#v} is already published"
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes

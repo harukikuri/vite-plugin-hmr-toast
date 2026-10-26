@@ -79,6 +79,14 @@ pnpm play   # build + start the playground, then edit files in playground/
 pnpm test   # build + vitest (unit, dev-server and DOM tests)
 ```
 
+To release, bump the version and push the tag; GitHub Actions tests it on Vite 5–8,
+publishes to npm (trusted publishing, with provenance) and creates the GitHub release:
+
+```sh
+npm version minor   # or patch / major: commits and tags v0.3.0
+git push --follow-tags
+```
+
 ## License
 
 MIT

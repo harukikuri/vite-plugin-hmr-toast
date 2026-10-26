@@ -23,7 +23,8 @@
     "typecheck": "tsc -p . --noEmit",
     "play": "pnpm build && pnpm --filter hmr-toast-playground dev",
     "test": "pnpm build && vitest run",
-    "lint": "biome check ."
+    "lint": "biome check .",
+    "prepublishOnly": "pnpm build"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
