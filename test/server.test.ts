@@ -3,9 +3,13 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build, createServer, type ViteDevServer } from "vite";
+import type { ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import hmrToast from "../dist/index.js";
+
+// CI runs this file against each supported Vite major (VITE_MAJOR),
+// installed under the npm alias VITE_PACKAGE; Vitest keeps its own Vite.
+const { build, createServer, version }: typeof import("vite") = await import(process.env.VITE_PACKAGE ?? "vite");
 
 const root = fileURLToPath(new URL("./fixture", import.meta.url));
 
@@ -24,6 +28,10 @@ beforeAll(async () => {
   url = server.resolvedUrls?.local[0] ?? "";
 });
 afterAll(() => server.close());
+
+test(`runs on the Vite under test (${version})`, () => {
+  expect(version.split(".")[0]).toBe(process.env.VITE_MAJOR ?? version.split(".")[0]);
+});
 
 test("injects the client into index.html, under base", async () => {
   const html = await (await fetch(url)).text();

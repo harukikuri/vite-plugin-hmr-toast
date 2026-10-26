@@ -22,7 +22,8 @@
     "build": "tsc -p .",
     "typecheck": "tsc -p . --noEmit",
     "play": "pnpm build && pnpm --filter hmr-toast-playground dev",
-    "test": "pnpm build && vitest run"
+    "test": "pnpm build && vitest run",
+    "lint": "biome check ."
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -43,6 +44,7 @@
     "vite": ">=5"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.3",
     "@types/node": "^24.19.2",
     "happy-dom": "^21.0.4",
     "typescript": "7.0.2",
