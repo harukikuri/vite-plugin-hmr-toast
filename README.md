@@ -14,6 +14,8 @@ This shows a small toast for every update:
 | Dev server is back | The dev server is back (shown after Vite reloads the page) |
 
 Updates also show how long the browser took to apply them, e.g. `12 ms`.
+Updates that come in a burst (an AI agent saving file after file) join one toast, newest file first:
+`src/App.tsx +3`. A reload lists the files hot-updated just before it too.
 It follows your system's light or dark mode.
 
 - Zero config, zero runtime dependencies (~8 kB gzipped client, file icons included)

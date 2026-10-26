@@ -68,12 +68,15 @@ export function start(opts: ClientOptions, hot: Hot): void {
   g.__hmrToast = true;
 
   if (opts.fullReload) {
-    const saved: { file: string; t: number } | null = JSON.parse(take(RELOAD_KEY) ?? "null");
-    if (saved && Date.now() - saved.t < MAX_AGE) show("RELOAD", saved.file ? [saved.file] : [], opts);
+    const saved: { files: string[]; t: number } | null = JSON.parse(take(RELOAD_KEY) ?? "null");
+    if (saved && Date.now() - saved.t < MAX_AGE) show("RELOAD", saved.files, opts);
+    // The file that caused the reload first, then the ones hot-updated just
+    // before it, whose toasts the reload is about to wipe.
     hot.on("vite:beforeFullReload", ({ triggeredBy }) => {
       const file = triggeredBy ? relative(triggeredBy, opts.root) : "";
       if (file && isExcluded(file, opts.exclude)) return;
-      put(RELOAD_KEY, JSON.stringify({ file, t: Date.now() }));
+      const files = [...new Set([...(file ? [file] : []), ...recentFiles()])];
+      put(RELOAD_KEY, JSON.stringify({ files, t: Date.now() }));
     });
   }
 
@@ -180,8 +183,19 @@ const CSS = `
 
 let stack: HTMLElement | null = null;
 
+// The toasts on screen and not yet leaving, so a burst of updates (an agent
+// saving file after file) adds to one toast instead of stacking a new one each.
+interface Live {
+  el: HTMLElement;
+  badge: Badge;
+  files: string[];
+  timer?: ReturnType<typeof setTimeout>;
+}
+let live: Live[] = [];
+
 function container(position: Position): HTMLElement {
   if (stack?.isConnected) return stack;
+  live = []; // its toasts went with the old stack
   const host = document.createElement("vite-hmr-toast");
   const root = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
@@ -286,14 +300,43 @@ function el(tag: string, className: string, text = ""): HTMLElement {
   return e;
 }
 
+// Files in the update toasts on screen: what changed just before a reload.
+export function recentFiles(): string[] {
+  return live.filter((t) => t.badge === "HMR" || t.badge === "CSS").flatMap((t) => t.files);
+}
+
 // OFFLINE stays until the page reloads; `ms` is how long the update took.
 export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: number): void {
   const parent = container(opts.position);
-  while (parent.children.length >= MAX_TOASTS) parent.firstElementChild?.remove();
+  // Another update of the same kind joins the toast on screen: newest file
+  // first, its time, and the countdown starts over.
+  const same = (badge === "HMR" || badge === "CSS") && live.find((t) => t.badge === badge);
+  const toast = same || { el: el("div", `toast enter ${badge}`), badge, files: [] };
+  toast.files = [...new Set([...files, ...toast.files])];
+  render(toast, ms);
 
-  const toast = el("div", `toast enter ${badge}`);
-  toast.setAttribute("role", "status");
-  toast.append(files.length > 0 ? fileIcon(files[0]) : el("span", "dot"), el("span", "title", TITLE[badge]));
+  if (!same) {
+    while (parent.children.length >= MAX_TOASTS) {
+      const oldest = parent.firstElementChild;
+      live = live.filter((t) => t.el !== oldest);
+      oldest?.remove();
+    }
+    toast.el.setAttribute("role", "status");
+    parent.append(toast.el);
+    live.push(toast);
+    requestAnimationFrame(() => toast.el.classList.remove("enter"));
+  }
+  if (badge === "OFFLINE") return;
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => {
+    live = live.filter((t) => t !== toast);
+    toast.el.classList.add("leave");
+    setTimeout(() => toast.el.remove(), 150);
+  }, opts.duration);
+}
+
+function render({ el: toast, badge, files }: Live, ms?: number): void {
+  toast.replaceChildren(files.length > 0 ? fileIcon(files[0]) : el("span", "dot"), el("span", "title", TITLE[badge]));
   toast.append(el("span", "time", ms === undefined ? "" : `${Math.round(ms)} ms`));
   if (files.length > 0) {
     // The directory muted, the file name in full color: the name is what you look for.
@@ -306,11 +349,4 @@ export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: nu
   } else if (NOTE[badge]) {
     toast.append(el("div", "detail note", NOTE[badge]));
   }
-  parent.append(toast);
-  requestAnimationFrame(() => toast.classList.remove("enter"));
-  if (badge === "OFFLINE") return;
-  setTimeout(() => {
-    toast.classList.add("leave");
-    setTimeout(() => toast.remove(), 150);
-  }, opts.duration);
 }

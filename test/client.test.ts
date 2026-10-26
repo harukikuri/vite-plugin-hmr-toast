@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { type ClientOptions, isExcluded, relative, start, summarize } from "../dist/client.js";
+import { type ClientOptions, isExcluded, relative, show, start, summarize } from "../dist/client.js";
 
 const opts: ClientOptions = {
   position: "bottom-right",
@@ -107,12 +107,9 @@ describe("toasts", () => {
   });
 
   test("shows the file's icon, or a dot without a file", () => {
-    const hot = fakeHot();
-    start(opts, hot);
-    for (const path of ["/src/App.tsx?t=1", "/src/Makefile"]) {
-      hot.emit("vite:afterUpdate", { updates: [{ type: "js-update", path }] });
-    }
-    hot.emit("vite:ws:disconnect", {});
+    show("HMR", ["src/App.tsx"], opts);
+    show("RELOAD", ["src/Makefile"], opts);
+    show("OFFLINE", [], opts);
     // Each icon told apart by its viewBox and color.
     const icons = [...(document.querySelector("vite-hmr-toast")?.shadowRoot?.querySelectorAll(".toast") ?? [])].map(
       (t) => {
@@ -124,11 +121,11 @@ describe("toasts", () => {
   });
 
   test("keeps at most three toasts", () => {
-    const hot = fakeHot();
-    start(opts, hot);
-    for (const f of ["a", "b", "c", "d"])
-      hot.emit("vite:afterUpdate", { updates: [{ type: "css-update", path: `/${f}.css` }] });
-    expect(toasts()).toEqual(["Styles updated: b.css", "Styles updated: c.css", "Styles updated: d.css"]);
+    show("OFFLINE", [], opts);
+    show("RELOAD", ["src/main.ts"], opts);
+    show("CSS", ["src/a.css"], opts);
+    show("HMR", ["src/a.ts"], opts);
+    expect(toasts()).toEqual(["Page reloaded: src/main.ts", "Styles updated: src/a.css", "Hot updated: src/a.ts"]);
   });
 
   test("starts once per page", () => {
@@ -138,6 +135,45 @@ describe("toasts", () => {
     start(opts, second);
     second.emit("vite:afterUpdate", { updates: [{ type: "js-update", path: "/a.ts" }] });
     expect(toasts()).toEqual([]);
+  });
+});
+
+describe("bursts of updates", () => {
+  const update = (hot: ReturnType<typeof fakeHot>, type: string, path: string) =>
+    hot.emit("vite:afterUpdate", { updates: [{ type, path }] });
+
+  test("updates of the same kind join one toast, newest file first", () => {
+    const hot = fakeHot();
+    start(opts, hot);
+    update(hot, "js-update", "/src/a.ts");
+    update(hot, "js-update", "/src/b.ts");
+    update(hot, "js-update", "/src/a.ts?t=2");
+    expect(toasts()).toEqual(["Hot updated: src/a.ts+1"]);
+  });
+
+  test("hot updates and style updates stay apart", () => {
+    const hot = fakeHot();
+    start(opts, hot);
+    update(hot, "js-update", "/src/a.ts");
+    update(hot, "css-update", "/src/a.css");
+    update(hot, "js-update", "/src/b.ts");
+    expect(toasts()).toEqual(["Hot updated: src/b.ts+1", "Styles updated: src/a.css"]);
+  });
+
+  test("each update restarts the countdown", () => {
+    vi.useFakeTimers();
+    const hot = fakeHot();
+    start(opts, hot);
+    update(hot, "js-update", "/src/a.ts");
+    vi.advanceTimersByTime(opts.duration - 100);
+    update(hot, "js-update", "/src/b.ts");
+    vi.advanceTimersByTime(opts.duration - 100);
+    expect(toasts()).toEqual(["Hot updated: src/b.ts+1"]);
+    vi.advanceTimersByTime(300);
+    expect(toasts()).toEqual([]);
+    // Once it's gone, the next update starts a new toast.
+    update(hot, "js-update", "/src/c.ts");
+    expect(toasts()).toEqual(["Hot updated: src/c.ts"]);
   });
 });
 
@@ -195,6 +231,18 @@ describe("full reload", () => {
     reloadWith({ triggeredBy: "/app/src/main.ts" });
     expect(toasts()).toEqual(["Page reloaded: src/main.ts"]);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  test("lists the files hot-updated just before it", () => {
+    const hot = fakeHot();
+    start(opts, hot);
+    hot.emit("vite:afterUpdate", { updates: [{ type: "js-update", path: "/src/counter.ts" }] });
+    hot.emit("vite:afterUpdate", { updates: [{ type: "css-update", path: "/src/style.css" }] });
+    hot.emit("vite:beforeFullReload", { triggeredBy: "/app/src/main.ts" });
+    delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
+    document.querySelector("vite-hmr-toast")?.remove();
+    start(opts, fakeHot());
+    expect(toasts()).toEqual(["Page reloaded: src/main.ts+2"]);
   });
 
   test("without a file", () => {
