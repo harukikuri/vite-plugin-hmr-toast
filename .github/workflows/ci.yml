@@ -45,7 +45,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       # Under an alias, so Vitest keeps the Vite it needs (Vitest 5 doesn't run on Vite 5).
-      - run: pnpm add -D vite-under-test@npm:vite@${{ matrix.vite }}
+      - run: pnpm add -D -w vite-under-test@npm:vite@${{ matrix.vite }}
       - run: pnpm test
         env:
           VITE_PACKAGE: vite-under-test
