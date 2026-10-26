@@ -5,17 +5,18 @@ A tiny Vite plugin that tells you **what just got hot-updated** — right in the
 Ever saved a file and wondered "did that actually apply, or did the page just reload?"
 This shows a small toast for every update:
 
-| Badge | When |
+| Toast | When |
 | --- | --- |
-| `HMR` | JS modules were hot-swapped |
-| `CSS` | Only stylesheets changed |
-| `RELOAD` | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
-| `OFFLINE` | The dev server stopped (stays until it's back) |
-| `ONLINE` | The dev server is back (shown after Vite reloads the page) |
+| Hot updated | JS modules were hot-swapped |
+| Styles updated | Only stylesheets changed |
+| Page reloaded | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
+| Dev server stopped | The dev server stopped (stays until it's back) |
+| Dev server is back | The dev server is back (shown after Vite reloads the page) |
 
-`HMR` and `CSS` toasts also show how long the browser took to apply the update: `src/App.tsx · 12ms`.
+Updates also show how long the browser took to apply them, e.g. `12 ms`.
+It follows your system's light or dark mode.
 
-- Zero config, zero runtime dependencies (~3 kB gzipped client)
+- Zero config, zero runtime dependencies (~8 kB gzipped client, file icons included)
 - Dev-only: does nothing in `vite build`
 - Rendered in Shadow DOM, so it never clashes with your app's CSS
 - Respects `prefers-reduced-motion`
@@ -89,4 +90,4 @@ git push --follow-tags
 
 ## License
 
-MIT
+MIT. The file icons come from [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) (MIT).

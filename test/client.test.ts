@@ -19,9 +19,15 @@ function fakeHot() {
   };
 }
 
+// Each toast as "Title (time): detail", leaving out the parts it doesn't have.
 function toasts() {
   const host = document.querySelector("vite-hmr-toast");
-  return [...(host?.shadowRoot?.querySelectorAll(".toast") ?? [])].map((t) => t.textContent);
+  return [...(host?.shadowRoot?.querySelectorAll(".toast") ?? [])].map((t) => {
+    const part = (sel: string) => t.querySelector(sel)?.textContent ?? "";
+    const time = part(".time");
+    const detail = part(".detail");
+    return part(".title") + (time ? ` (${time})` : "") + (detail ? `: ${detail}` : "");
+  });
 }
 
 afterEach(() => {
@@ -95,9 +101,26 @@ describe("toasts", () => {
         { type: "js-update", path: "/src/b.ts" },
       ],
     });
-    expect(toasts()).toEqual(["HMRsrc/App.tsx +1"]);
+    expect(toasts()).toEqual(["Hot updated: src/App.tsx+1"]);
     vi.advanceTimersByTime(opts.duration + 200);
     expect(toasts()).toEqual([]);
+  });
+
+  test("shows the file's icon, or a dot without a file", () => {
+    const hot = fakeHot();
+    start(opts, hot);
+    for (const path of ["/src/App.tsx?t=1", "/src/Makefile"]) {
+      hot.emit("vite:afterUpdate", { updates: [{ type: "js-update", path }] });
+    }
+    hot.emit("vite:ws:disconnect", {});
+    // Each icon told apart by its viewBox and color.
+    const icons = [...(document.querySelector("vite-hmr-toast")?.shadowRoot?.querySelectorAll(".toast") ?? [])].map(
+      (t) => {
+        const svg = t.firstElementChild?.querySelector("svg");
+        return `${t.firstElementChild?.className} ${svg?.getAttribute("viewBox")} ${svg?.querySelector("path")?.getAttribute("fill")}`;
+      },
+    );
+    expect(icons).toEqual(["icon 0 0 32 32 #0288d1", "icon 0 0 24 24 #42a5f5", "dot undefined undefined"]);
   });
 
   test("keeps at most three toasts", () => {
@@ -105,7 +128,7 @@ describe("toasts", () => {
     start(opts, hot);
     for (const f of ["a", "b", "c", "d"])
       hot.emit("vite:afterUpdate", { updates: [{ type: "css-update", path: `/${f}.css` }] });
-    expect(toasts()).toEqual(["CSSb.css", "CSSc.css", "CSSd.css"]);
+    expect(toasts()).toEqual(["Styles updated: b.css", "Styles updated: c.css", "Styles updated: d.css"]);
   });
 
   test("starts once per page", () => {
@@ -126,7 +149,7 @@ describe("update time", () => {
     const payload = { updates: [{ type: "js-update", path: "/src/App.tsx" }] };
     hot.emit("vite:beforeUpdate", payload);
     hot.emit("vite:afterUpdate", payload);
-    expect(toasts()).toEqual(["HMRsrc/App.tsx · 12ms"]);
+    expect(toasts()).toEqual(["Hot updated (12 ms): src/App.tsx"]);
   });
 });
 
@@ -137,13 +160,13 @@ describe("server connection", () => {
     start(opts, hot);
     hot.emit("vite:ws:disconnect", {});
     vi.advanceTimersByTime(60_000);
-    expect(toasts()).toEqual(["OFFLINEdev server stopped"]);
+    expect(toasts()).toEqual(["Dev server stopped: Waiting for it to restart"]);
 
     // Vite reloads the page once the server answers again.
     delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
     document.querySelector("vite-hmr-toast")?.remove();
     start(opts, fakeHot());
-    expect(toasts()).toEqual(["ONLINEdev server is back"]);
+    expect(toasts()).toEqual(["Dev server is back"]);
     expect(sessionStorage.length).toBe(0);
   });
 
@@ -170,13 +193,13 @@ describe("full reload", () => {
 
   test("shows the file that caused it after the page comes back", () => {
     reloadWith({ triggeredBy: "/app/src/main.ts" });
-    expect(toasts()).toEqual(["RELOADsrc/main.ts"]);
+    expect(toasts()).toEqual(["Page reloaded: src/main.ts"]);
     expect(sessionStorage.length).toBe(0);
   });
 
   test("without a file", () => {
     reloadWith({});
-    expect(toasts()).toEqual(["RELOADpage reloaded"]);
+    expect(toasts()).toEqual(["Page reloaded"]);
   });
 
   test("quiet for excluded files", () => {
