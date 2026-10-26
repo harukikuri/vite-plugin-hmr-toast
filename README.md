@@ -1,27 +1,12 @@
 # vite-plugin-hmr-toast
 
-A tiny Vite plugin that tells you **what just got hot-updated** — right in the browser.
-
-Ever saved a file and wondered "did that actually apply, or did the page just reload?"
-This shows a small toast for every update:
+Shows a toast in the browser whenever Vite hot-updates a file, reloads the page, or loses the
+dev server. It only runs in `vite dev`.
 
 ![Toasts for a hot update, a style update, an agent editing three files, a page reload and a dev server restart](https://raw.githubusercontent.com/harukikuri/vite-plugin-hmr-toast/main/docs/demo.gif)
 
-| Toast | When |
-| --- | --- |
-| `App.tsx updated` | A module or stylesheet was hot-updated (with the file's icon and how long it took, e.g. `12 ms`) |
-| `main.ts reloaded the page` | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
-| `Dev server stopped` | The dev server stopped (stays until it's back) |
-| `Dev server is back` | The dev server is back (shown after Vite reloads the page) |
-
-Updates that come in a burst (an AI agent saving file after file) join one toast, newest file first:
-`App.tsx and 3 more updated`. Hover a toast for the full paths.
-It follows your system's light or dark mode.
-
-- Zero config, zero runtime dependencies (~8 kB gzipped client, file icons included)
-- Dev-only: does nothing in `vite build`
-- Rendered in Shadow DOM, so it never clashes with your app's CSS
-- Respects `prefers-reduced-motion`
+Saves that land close together, like an agent editing several files, share one toast. Hover a
+toast to see the full paths.
 
 ## Install
 
@@ -47,10 +32,32 @@ hmrToast({
   duration: 1600,           // ms
   fullReload: true,         // also report full page reloads
   exclude: ['.stories.', /\.generated\./], // stay quiet for these paths
+  css: '',                  // your own CSS for the toasts, see below
 })
 ```
 
 `exclude` strings match as substrings; RegExps are tested against the path (e.g. `src/App.tsx`).
+
+## Styling
+
+The toasts render in a shadow root, so your app's CSS doesn't reach them. Pass `css` instead.
+It goes in after the built-in styles, so the same selectors win:
+
+```ts
+hmrToast({
+  css: `
+    :host { --surface: #111; --text: #eee; --muted: #999; --border: #333; }
+    .toast { border-radius: 4px; font-family: Inter, sans-serif; }
+  `,
+})
+```
+
+Colors are variables on `:host`: `--surface`, `--border`, `--text`, `--muted` and `--shadow`.
+Values you set apply in light and dark mode alike; for separate dark ones, set them again
+under `@media (prefers-color-scheme: dark)`.
+
+The elements are `.toast` (also `.hmr`, `.css`, `.reload`, `.offline` or `.online`), and inside
+it `.icon` or `.dot`, `.line` with `.name` for the file name, and `.time`.
 
 ## Apps without `index.html`
 
@@ -66,13 +73,6 @@ In TypeScript, reference the module's types once (e.g. in `src/vite-env.d.ts`):
 ```ts
 /// <reference types="vite-plugin-hmr-toast/virtual" />
 ```
-
-## How it works
-
-The plugin serves a virtual module that listens to Vite's built-in HMR events
-(`vite:beforeUpdate`, `vite:afterUpdate`, `vite:beforeFullReload` and `vite:ws:disconnect`).
-Full reloads and server restarts are remembered in `sessionStorage` for one hop so the
-toast can survive the reload.
 
 ## Development
 
