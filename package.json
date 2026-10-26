@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-hmr-toast",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Shows a small toast in the browser for every Vite hot update, CSS update and full reload.",
   "keywords": [
