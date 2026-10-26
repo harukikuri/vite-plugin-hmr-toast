@@ -1,5 +1,6 @@
 {
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["**", "!**/*.md"] },
   "formatter": { "indentStyle": "space", "lineWidth": 120 },
   "javascript": { "formatter": { "quoteStyle": "double" } },
   "linter": { "rules": { "style": { "useTemplate": "off" } } },

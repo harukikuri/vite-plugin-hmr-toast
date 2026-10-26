@@ -24,10 +24,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./virtual": {
+      "types": "./virtual.d.ts"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "virtual.d.ts"
   ],
   "peerDependencies": {
     "vite": ">=5"

@@ -54,6 +54,12 @@ The client is injected through `transformIndexHtml`. If your setup doesn't go th
 if (import.meta.env.DEV) import('virtual:hmr-toast')
 ```
 
+In TypeScript, reference the module's types once (e.g. in `src/vite-env.d.ts`):
+
+```ts
+/// <reference types="vite-plugin-hmr-toast/virtual" />
+```
+
 ## How it works
 
 The plugin serves a virtual module that listens to Vite's built-in HMR events
