@@ -3,7 +3,7 @@
 // `import.meta.hot`, so it must not import anything.
 
 export type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-export type Badge = "HMR" | "CSS" | "RELOAD";
+export type Badge = "HMR" | "CSS" | "RELOAD" | "OFFLINE" | "ONLINE";
 
 export interface ClientOptions {
   position: Position;
@@ -18,12 +18,17 @@ interface Update {
   type: "js-update" | "css-update";
   path: string;
 }
+interface UpdatePayload {
+  updates: Update[];
+}
 interface Hot {
-  on(event: "vite:afterUpdate", cb: (payload: { updates: Update[] }) => void): void;
+  on(event: "vite:beforeUpdate" | "vite:afterUpdate", cb: (payload: UpdatePayload) => void): void;
   on(event: "vite:beforeFullReload", cb: (payload: { triggeredBy?: string }) => void): void;
+  on(event: "vite:ws:disconnect", cb: () => void): void;
 }
 
-const KEY = "vite-plugin-hmr-toast:reload";
+const RELOAD_KEY = "vite-plugin-hmr-toast:reload";
+const OFFLINE_KEY = "vite-plugin-hmr-toast:offline";
 // A stored reload older than this never happened (Vite skips reloads for
 // another page's HTML), so the next manual reload shouldn't report it.
 const MAX_AGE = 10_000;
@@ -63,31 +68,53 @@ export function start(opts: ClientOptions, hot: Hot): void {
   g.__hmrToast = true;
 
   if (opts.fullReload) {
-    const saved = takeReload();
+    const saved: { file: string; t: number } | null = JSON.parse(take(RELOAD_KEY) ?? "null");
     if (saved && Date.now() - saved.t < MAX_AGE) show("RELOAD", saved.file ? [saved.file] : [], opts);
     hot.on("vite:beforeFullReload", ({ triggeredBy }) => {
       const file = triggeredBy ? relative(triggeredBy, opts.root) : "";
       if (file && isExcluded(file, opts.exclude)) return;
-      try {
-        sessionStorage.setItem(KEY, JSON.stringify({ file, t: Date.now() }));
-      } catch {}
+      put(RELOAD_KEY, JSON.stringify({ file, t: Date.now() }));
     });
   }
 
-  hot.on("vite:afterUpdate", ({ updates }) => {
-    const s = summarize(updates, opts);
-    if (s) show(s.badge, s.files, opts);
+  // When the server stops, Vite polls until it's back and then reloads the
+  // page, so ONLINE is shown by the page after that reload. The socket also
+  // closes when the page itself unloads, which isn't the server stopping.
+  let unloading = false;
+  addEventListener("beforeunload", () => (unloading = true));
+  if (take(OFFLINE_KEY)) show("ONLINE", [], opts);
+  hot.on("vite:ws:disconnect", () => {
+    if (unloading) return;
+    put(OFFLINE_KEY, "1");
+    show("OFFLINE", [], opts);
+  });
+
+  // How long the browser took to apply each update.
+  const started = new WeakMap<UpdatePayload, number>();
+  hot.on("vite:beforeUpdate", (payload) => started.set(payload, performance.now()));
+  hot.on("vite:afterUpdate", (payload) => {
+    const s = summarize(payload.updates, opts);
+    const t0 = started.get(payload);
+    if (s) show(s.badge, s.files, opts, t0 === undefined ? undefined : performance.now() - t0);
   });
 }
 
-function takeReload(): { file: string; t: number } | null {
+// sessionStorage can throw (blocked storage, sandboxed frames): then the
+// toasts that span a reload just don't appear.
+function take(key: string): string | null {
   try {
-    const raw = sessionStorage.getItem(KEY);
-    sessionStorage.removeItem(KEY);
-    return raw ? JSON.parse(raw) : null;
+    const value = sessionStorage.getItem(key);
+    sessionStorage.removeItem(key);
+    return value;
   } catch {
     return null;
   }
+}
+
+function put(key: string, value: string): void {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {}
 }
 
 const CSS = `
@@ -110,6 +137,8 @@ const CSS = `
 .HMR { background: #4ade80; }
 .CSS { background: #60a5fa; }
 .RELOAD { background: #fbbf24; }
+.OFFLINE { background: #f87171; }
+.ONLINE { background: #2dd4bf; }
 .file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 `;
@@ -129,7 +158,15 @@ function container(position: Position): HTMLElement {
   return stack;
 }
 
-export function show(badge: Badge, files: string[], opts: ClientOptions): void {
+// Without files, the badge's own message. OFFLINE stays until the page
+// reloads; `ms` is how long the update took.
+const MESSAGE: Partial<Record<Badge, string>> = {
+  RELOAD: "page reloaded",
+  OFFLINE: "dev server stopped",
+  ONLINE: "dev server is back",
+};
+
+export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: number): void {
   const parent = container(opts.position);
   while (parent.children.length >= MAX_TOASTS) parent.firstElementChild?.remove();
 
@@ -142,12 +179,14 @@ export function show(badge: Badge, files: string[], opts: ClientOptions): void {
   const text = document.createElement("span");
   text.className = "file";
   text.textContent =
-    files.length === 0 ? "page reloaded" : files[0] + (files.length > 1 ? ` +${files.length - 1}` : "");
+    files.length === 0 ? (MESSAGE[badge] ?? "") : files[0] + (files.length > 1 ? ` +${files.length - 1}` : "");
+  if (ms !== undefined) text.textContent += ` · ${Math.round(ms)}ms`;
   text.title = files.join("\n");
   toast.append(label, text);
   parent.append(toast);
 
   requestAnimationFrame(() => toast.classList.remove("enter"));
+  if (badge === "OFFLINE") return;
   setTimeout(() => {
     toast.classList.add("leave");
     setTimeout(() => toast.remove(), 150);

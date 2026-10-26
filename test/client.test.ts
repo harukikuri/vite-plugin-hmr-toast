@@ -29,6 +29,7 @@ afterEach(() => {
   delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
   sessionStorage.clear();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 describe("paths", () => {
@@ -114,6 +115,45 @@ describe("toasts", () => {
     start(opts, second);
     second.emit("vite:afterUpdate", { updates: [{ type: "js-update", path: "/a.ts" }] });
     expect(toasts()).toEqual([]);
+  });
+});
+
+describe("update time", () => {
+  test("from vite:beforeUpdate to vite:afterUpdate", () => {
+    vi.spyOn(performance, "now").mockReturnValueOnce(100).mockReturnValueOnce(112.4);
+    const hot = fakeHot();
+    start(opts, hot);
+    const payload = { updates: [{ type: "js-update", path: "/src/App.tsx" }] };
+    hot.emit("vite:beforeUpdate", payload);
+    hot.emit("vite:afterUpdate", payload);
+    expect(toasts()).toEqual(["HMRsrc/App.tsx · 12ms"]);
+  });
+});
+
+describe("server connection", () => {
+  test("OFFLINE stays, and the page after the reload shows ONLINE", () => {
+    vi.useFakeTimers();
+    const hot = fakeHot();
+    start(opts, hot);
+    hot.emit("vite:ws:disconnect", {});
+    vi.advanceTimersByTime(60_000);
+    expect(toasts()).toEqual(["OFFLINEdev server stopped"]);
+
+    // Vite reloads the page once the server answers again.
+    delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
+    document.querySelector("vite-hmr-toast")?.remove();
+    start(opts, fakeHot());
+    expect(toasts()).toEqual(["ONLINEdev server is back"]);
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  test("quiet when the page itself unloads", () => {
+    const hot = fakeHot();
+    start(opts, hot);
+    window.dispatchEvent(new Event("beforeunload"));
+    hot.emit("vite:ws:disconnect", {});
+    expect(toasts()).toEqual([]);
+    expect(sessionStorage.length).toBe(0);
   });
 });
 
