@@ -148,33 +148,27 @@ const CSS = `
 .bottom-left { bottom: 16px; left: 16px; flex-direction: column-reverse; }
 .bottom-right { bottom: 16px; right: 16px; flex-direction: column-reverse; }
 .toast {
-  display: grid; grid-template-columns: 28px 1fr auto; column-gap: 10px; align-items: center;
-  padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border);
+  display: grid; grid-template-columns: 20px 1fr auto; column-gap: 10px; align-items: center;
+  padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface); color: var(--text); box-shadow: var(--shadow);
   transition: opacity 160ms ease-out, transform 160ms ease-out;
 }
 .toast.enter, .toast.leave { opacity: 0; transform: translateY(6px); }
-/* Beside both lines: the file's icon, or a status dot when there's no file. */
-.dot, .icon { grid-row: 1 / 3; justify-self: center; }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
-.icon, .icon svg { display: block; width: 24px; height: 24px; }
+/* The file's icon, or a status dot when there's no file. */
+.dot { justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.icon, .icon svg { display: block; width: 20px; height: 20px; }
 .HMR, .ONLINE { --dot: #22c55e; }
 .CSS { --dot: #3b82f6; }
 .RELOAD { --dot: #f59e0b; }
 .OFFLINE { --dot: #ef4444; }
 .OFFLINE .dot { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
-.title { font-weight: 500; }
+.line { display: flex; min-width: 0; white-space: nowrap; color: var(--muted); }
+.line.plain { color: var(--text); }
+/* A long name gives way; "and 2 more updated" stays readable. */
+.name { overflow: hidden; text-overflow: ellipsis; font-weight: 500; color: var(--text); }
+.rest { flex: none; white-space: pre; }
 .time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.detail {
-  grid-column: 2 / 4; display: flex; min-width: 0; margin-top: 2px; white-space: nowrap;
-  color: var(--muted); font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-/* A long path gives up its directory first, then the name. */
-.dir { flex: 0 1000 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.name { flex: 0 1 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.more { flex: none; margin-left: 6px; }
-.note { font: inherit; font-size: 12px; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
   .OFFLINE .dot { animation: none; }
@@ -209,14 +203,14 @@ function container(position: Position): HTMLElement {
 
 // What each toast says. The second line is the file (or files) for updates
 // and reloads, and NOTE for the toasts without one.
-const TITLE: Record<Badge, string> = {
-  HMR: "Hot updated",
-  CSS: "Styles updated",
+// One line per toast: "App.tsx updated", "main.ts reloaded the page", or,
+// without a file, what happened.
+const AFTER_FILE: Partial<Record<Badge, string>> = { HMR: "updated", CSS: "updated", RELOAD: "reloaded the page" };
+const NO_FILE: Partial<Record<Badge, string>> = {
   RELOAD: "Page reloaded",
   OFFLINE: "Dev server stopped",
   ONLINE: "Dev server is back",
 };
-const NOTE: Partial<Record<Badge, string>> = { OFFLINE: "Waiting for it to restart" };
 
 // The icon for each extension, as VS Code's Material Icon Theme picks it.
 const ICON_OF: Record<string, string> = {
@@ -336,17 +330,18 @@ export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: nu
 }
 
 function render({ el: toast, badge, files }: Live, ms?: number): void {
-  toast.replaceChildren(files.length > 0 ? fileIcon(files[0]) : el("span", "dot"), el("span", "title", TITLE[badge]));
-  toast.append(el("span", "time", ms === undefined ? "" : `${Math.round(ms)} ms`));
+  const line = el("span", "line");
   if (files.length > 0) {
-    // The directory muted, the file name in full color: the name is what you look for.
-    const detail = el("div", "detail");
-    const slash = files[0].lastIndexOf("/") + 1;
-    detail.append(el("span", "dir", files[0].slice(0, slash)), el("span", "name", files[0].slice(slash)));
-    if (files.length > 1) detail.append(el("span", "more", `+${files.length - 1}`));
-    detail.title = files.join("\n");
-    toast.append(detail);
-  } else if (NOTE[badge]) {
-    toast.append(el("div", "detail note", NOTE[badge]));
+    // The file name only; hover for the full paths. A reload names the file
+    // that caused it, not the ones updated before it.
+    const more = badge === "RELOAD" ? 0 : files.length - 1;
+    line.append(el("span", "name", files[0].slice(files[0].lastIndexOf("/") + 1)));
+    line.append(el("span", "rest", ` ${more ? `and ${more} more ` : ""}${AFTER_FILE[badge]}`));
+    line.title = files.join("\n");
+  } else {
+    line.className = "line plain";
+    line.textContent = NO_FILE[badge] ?? "";
   }
+  const time = el("span", "time", ms === undefined ? "" : `${Math.round(ms)} ms`);
+  toast.replaceChildren(files.length > 0 ? fileIcon(files[0]) : el("span", "dot"), line, time);
 }

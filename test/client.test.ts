@@ -19,14 +19,12 @@ function fakeHot() {
   };
 }
 
-// Each toast as "Title (time): detail", leaving out the parts it doesn't have.
+// Each toast's line, with its time when it has one: "App.tsx updated (12 ms)".
 function toasts() {
   const host = document.querySelector("vite-hmr-toast");
   return [...(host?.shadowRoot?.querySelectorAll(".toast") ?? [])].map((t) => {
-    const part = (sel: string) => t.querySelector(sel)?.textContent ?? "";
-    const time = part(".time");
-    const detail = part(".detail");
-    return part(".title") + (time ? ` (${time})` : "") + (detail ? `: ${detail}` : "");
+    const time = t.querySelector(".time")?.textContent;
+    return (t.querySelector(".line")?.textContent ?? "") + (time ? ` (${time})` : "");
   });
 }
 
@@ -101,7 +99,7 @@ describe("toasts", () => {
         { type: "js-update", path: "/src/b.ts" },
       ],
     });
-    expect(toasts()).toEqual(["Hot updated: src/App.tsx+1"]);
+    expect(toasts()).toEqual(["App.tsx and 1 more updated"]);
     vi.advanceTimersByTime(opts.duration + 200);
     expect(toasts()).toEqual([]);
   });
@@ -125,7 +123,7 @@ describe("toasts", () => {
     show("RELOAD", ["src/main.ts"], opts);
     show("CSS", ["src/a.css"], opts);
     show("HMR", ["src/a.ts"], opts);
-    expect(toasts()).toEqual(["Page reloaded: src/main.ts", "Styles updated: src/a.css", "Hot updated: src/a.ts"]);
+    expect(toasts()).toEqual(["main.ts reloaded the page", "a.css updated", "a.ts updated"]);
   });
 
   test("starts once per page", () => {
@@ -148,7 +146,7 @@ describe("bursts of updates", () => {
     update(hot, "js-update", "/src/a.ts");
     update(hot, "js-update", "/src/b.ts");
     update(hot, "js-update", "/src/a.ts?t=2");
-    expect(toasts()).toEqual(["Hot updated: src/a.ts+1"]);
+    expect(toasts()).toEqual(["a.ts and 1 more updated"]);
   });
 
   test("hot updates and style updates stay apart", () => {
@@ -157,7 +155,7 @@ describe("bursts of updates", () => {
     update(hot, "js-update", "/src/a.ts");
     update(hot, "css-update", "/src/a.css");
     update(hot, "js-update", "/src/b.ts");
-    expect(toasts()).toEqual(["Hot updated: src/b.ts+1", "Styles updated: src/a.css"]);
+    expect(toasts()).toEqual(["b.ts and 1 more updated", "a.css updated"]);
   });
 
   test("each update restarts the countdown", () => {
@@ -168,12 +166,12 @@ describe("bursts of updates", () => {
     vi.advanceTimersByTime(opts.duration - 100);
     update(hot, "js-update", "/src/b.ts");
     vi.advanceTimersByTime(opts.duration - 100);
-    expect(toasts()).toEqual(["Hot updated: src/b.ts+1"]);
+    expect(toasts()).toEqual(["b.ts and 1 more updated"]);
     vi.advanceTimersByTime(300);
     expect(toasts()).toEqual([]);
     // Once it's gone, the next update starts a new toast.
     update(hot, "js-update", "/src/c.ts");
-    expect(toasts()).toEqual(["Hot updated: src/c.ts"]);
+    expect(toasts()).toEqual(["c.ts updated"]);
   });
 });
 
@@ -185,7 +183,7 @@ describe("update time", () => {
     const payload = { updates: [{ type: "js-update", path: "/src/App.tsx" }] };
     hot.emit("vite:beforeUpdate", payload);
     hot.emit("vite:afterUpdate", payload);
-    expect(toasts()).toEqual(["Hot updated (12 ms): src/App.tsx"]);
+    expect(toasts()).toEqual(["App.tsx updated (12 ms)"]);
   });
 });
 
@@ -196,7 +194,7 @@ describe("server connection", () => {
     start(opts, hot);
     hot.emit("vite:ws:disconnect", {});
     vi.advanceTimersByTime(60_000);
-    expect(toasts()).toEqual(["Dev server stopped: Waiting for it to restart"]);
+    expect(toasts()).toEqual(["Dev server stopped"]);
 
     // Vite reloads the page once the server answers again.
     delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
@@ -229,11 +227,11 @@ describe("full reload", () => {
 
   test("shows the file that caused it after the page comes back", () => {
     reloadWith({ triggeredBy: "/app/src/main.ts" });
-    expect(toasts()).toEqual(["Page reloaded: src/main.ts"]);
+    expect(toasts()).toEqual(["main.ts reloaded the page"]);
     expect(sessionStorage.length).toBe(0);
   });
 
-  test("lists the files hot-updated just before it", () => {
+  test("keeps the files hot-updated just before it", () => {
     const hot = fakeHot();
     start(opts, hot);
     hot.emit("vite:afterUpdate", { updates: [{ type: "js-update", path: "/src/counter.ts" }] });
@@ -242,7 +240,10 @@ describe("full reload", () => {
     delete (globalThis as { __hmrToast?: boolean }).__hmrToast;
     document.querySelector("vite-hmr-toast")?.remove();
     start(opts, fakeHot());
-    expect(toasts()).toEqual(["Page reloaded: src/main.ts+2"]);
+    // The cause in the line, every file when you hover it.
+    expect(toasts()).toEqual(["main.ts reloaded the page"]);
+    const line = document.querySelector("vite-hmr-toast")?.shadowRoot?.querySelector<HTMLElement>(".line");
+    expect(line?.title).toBe("src/main.ts\nsrc/counter.ts\nsrc/style.css");
   });
 
   test("without a file", () => {

@@ -7,15 +7,13 @@ This shows a small toast for every update:
 
 | Toast | When |
 | --- | --- |
-| Hot updated | JS modules were hot-swapped |
-| Styles updated | Only stylesheets changed |
-| Page reloaded | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
-| Dev server stopped | The dev server stopped (stays until it's back) |
-| Dev server is back | The dev server is back (shown after Vite reloads the page) |
+| `App.tsx updated` | A module or stylesheet was hot-updated (with the file's icon and how long it took, e.g. `12 ms`) |
+| `main.ts reloaded the page` | Vite did a full page reload (shown after the page comes back, with the file that caused it) |
+| `Dev server stopped` | The dev server stopped (stays until it's back) |
+| `Dev server is back` | The dev server is back (shown after Vite reloads the page) |
 
-Updates also show how long the browser took to apply them, e.g. `12 ms`.
 Updates that come in a burst (an AI agent saving file after file) join one toast, newest file first:
-`src/App.tsx +3`. A reload lists the files hot-updated just before it too.
+`App.tsx and 3 more updated`. Hover a toast for the full paths.
 It follows your system's light or dark mode.
 
 - Zero config, zero runtime dependencies (~8 kB gzipped client, file icons included)
