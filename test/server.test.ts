@@ -22,7 +22,13 @@ beforeAll(async () => {
     logLevel: "silent",
     base: "/sub/",
     server: { port: 0 },
-    plugins: [hmrToast({ position: "top-left", exclude: [".stories.", /\.gen\.(ts|js)$/i] })],
+    plugins: [
+      hmrToast({
+        position: "top-left",
+        exclude: [".stories.", /\.gen\.(ts|js)$/i],
+        css: '.toast { font: 12px "Inter"; }',
+      }),
+    ],
   });
   await server.listen();
   url = server.resolvedUrls?.local[0] ?? "";
@@ -45,6 +51,7 @@ test("serves the client started with the options", async () => {
   expect(code).toContain('position: "top-left"');
   expect(code).toContain('exclude: [".stories.", /\\.gen\\.(ts|js)$/i]');
   expect(code).toContain(`root: ${JSON.stringify(root)}`);
+  expect(code).toContain(`css: ${JSON.stringify('.toast { font: 12px "Inter"; }')}`);
   // Vite rewrote import.meta.hot, so the module went through its pipeline.
   expect(code).toContain("import.meta.hot = __vite__createHotContext");
 });

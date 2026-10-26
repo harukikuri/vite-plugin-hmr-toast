@@ -11,6 +11,8 @@ export interface HmrToastOptions {
   fullReload?: boolean;
   /** Paths to stay quiet for: strings match as substrings, RegExps are tested. */
   exclude?: (string | RegExp)[];
+  /** Your own CSS for the toasts, added after theirs inside their shadow root. */
+  css?: string;
 }
 
 const VIRTUAL = "virtual:hmr-toast";
@@ -19,7 +21,7 @@ const RESOLVED = "\0" + VIRTUAL;
 const clientFile = new URL("./client.js", import.meta.url);
 
 export default function hmrToast(options: HmrToastOptions = {}): Plugin {
-  const { position = "bottom-right", duration = 1600, fullReload = true, exclude = [] } = options;
+  const { position = "bottom-right", duration = 1600, fullReload = true, exclude = [], css = "" } = options;
   let serve = false;
   let root = "";
   let base = "/";
@@ -39,7 +41,7 @@ export default function hmrToast(options: HmrToastOptions = {}): Plugin {
       if (!serve) return "export {};";
       // RegExps as literals, so they survive the trip to the browser.
       const patterns = exclude.map((e) => (typeof e === "string" ? JSON.stringify(e) : String(e))).join(", ");
-      const opts = `{ position: ${JSON.stringify(position)}, duration: ${JSON.stringify(duration)}, fullReload: ${JSON.stringify(fullReload)}, exclude: [${patterns}], root: ${JSON.stringify(root)} }`;
+      const opts = `{ position: ${JSON.stringify(position)}, duration: ${JSON.stringify(duration)}, fullReload: ${JSON.stringify(fullReload)}, exclude: [${patterns}], root: ${JSON.stringify(root)}, css: ${JSON.stringify(css)} }`;
       return `${readFileSync(clientFile, "utf8")}\nif (import.meta.hot) start(${opts}, import.meta.hot);\n`;
     },
     transformIndexHtml() {

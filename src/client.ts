@@ -11,6 +11,8 @@ export interface ClientOptions {
   fullReload: boolean;
   exclude: (string | RegExp)[];
   root: string;
+  /** Appended to the toasts' styles, inside their shadow root. */
+  css: string;
 }
 
 // The parts of Vite's HMR payloads we read.
@@ -157,11 +159,11 @@ const CSS = `
 /* The file's icon, or a status dot when there's no file. */
 .dot { justify-self: center; width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
 .icon, .icon svg { display: block; width: 20px; height: 20px; }
-.HMR, .ONLINE { --dot: #22c55e; }
-.CSS { --dot: #3b82f6; }
-.RELOAD { --dot: #f59e0b; }
-.OFFLINE { --dot: #ef4444; }
-.OFFLINE .dot { animation: pulse 1.6s ease-in-out infinite; }
+.hmr, .online { --dot: #22c55e; }
+.css { --dot: #3b82f6; }
+.reload { --dot: #f59e0b; }
+.offline { --dot: #ef4444; }
+.offline .dot { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 .line { display: flex; min-width: 0; white-space: nowrap; color: var(--muted); }
 .line.plain { color: var(--text); }
@@ -171,7 +173,7 @@ const CSS = `
 .time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   .toast { transition: none; }
-  .OFFLINE .dot { animation: none; }
+  .offline .dot { animation: none; }
 }
 `;
 
@@ -187,13 +189,13 @@ interface Live {
 }
 let live: Live[] = [];
 
-function container(position: Position): HTMLElement {
+function container({ position, css }: ClientOptions): HTMLElement {
   if (stack?.isConnected) return stack;
   live = []; // its toasts went with the old stack
   const host = document.createElement("vite-hmr-toast");
   const root = host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
-  style.textContent = CSS;
+  style.textContent = CSS + css;
   stack = document.createElement("div");
   stack.className = `stack ${position}`;
   root.append(style, stack);
@@ -301,11 +303,11 @@ export function recentFiles(): string[] {
 
 // OFFLINE stays until the page reloads; `ms` is how long the update took.
 export function show(badge: Badge, files: string[], opts: ClientOptions, ms?: number): void {
-  const parent = container(opts.position);
+  const parent = container(opts);
   // Another update of the same kind joins the toast on screen: newest file
   // first, its time, and the countdown starts over.
   const same = (badge === "HMR" || badge === "CSS") && live.find((t) => t.badge === badge);
-  const toast = same || { el: el("div", `toast enter ${badge}`), badge, files: [] };
+  const toast = same || { el: el("div", `toast enter ${badge.toLowerCase()}`), badge, files: [] };
   toast.files = [...new Set([...files, ...toast.files])];
   render(toast, ms);
 

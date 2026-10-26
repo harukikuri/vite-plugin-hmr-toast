@@ -8,6 +8,7 @@ const opts: ClientOptions = {
   fullReload: true,
   exclude: [".stories.", /\.generated\./],
   root: "/app",
+  css: "",
 };
 
 // Stands in for import.meta.hot: records listeners so tests can fire events.
@@ -116,6 +117,13 @@ describe("toasts", () => {
       },
     );
     expect(icons).toEqual(["icon 0 0 32 32 #0288d1", "icon 0 0 24 24 #42a5f5", "dot undefined undefined"]);
+  });
+
+  test("adds the css option after its own styles", () => {
+    show("HMR", ["src/a.ts"], { ...opts, css: ".toast { border-radius: 0; }" });
+    const style = document.querySelector("vite-hmr-toast")?.shadowRoot?.querySelector("style")?.textContent ?? "";
+    expect(style.endsWith(".toast { border-radius: 0; }")).toBe(true);
+    expect(style.indexOf(".toast {")).toBeLessThan(style.lastIndexOf(".toast {"));
   });
 
   test("keeps at most three toasts", () => {
